@@ -1,0 +1,10 @@
+Requirements for High-Density Matching
+
+Use of Virtual Machine will be important.
+
+python 3.9.18 or lower
+miniconda or anaconda
+OpenCV
+numpy
+skipy
+skimage
