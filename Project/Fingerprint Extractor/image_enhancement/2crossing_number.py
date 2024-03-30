@@ -1,6 +1,7 @@
 import cv2 as cv
 import numpy as np
 
+# NOT NEEDED, revised version within Fingerprint_Extractor folder
 
 def minutiae_at(pixels, i, j, kernel_size):
     """
