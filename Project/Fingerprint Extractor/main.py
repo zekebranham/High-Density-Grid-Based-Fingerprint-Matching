@@ -1,86 +1,197 @@
-from Cascade1Fingerprint_Processor import process_fingerprint
-from Cascade1Fingerprint_Processor import visualize_minutiae
-from Cascade1Fingerprint_Processor import center_fingerprint_roi
-from Cascade1Fingerprint_Processor import divide_into_grids
-from Cascade1Fingerprint_Processor import save_cascade1_output
-from database_worker import connect_db, create_tables, insert_data
-from Fingerprint_Extractor.crossing_number import calculate_minutiaes
-from Fingerprint_Extractor.crossing_number import remove_false_minutiae
+import math
+from glob import glob
+from Cascade1Fingerprint_Processor import process_fingerprint, visualize_minutiae, center_fingerprint_roi, save_cascade1_output
+from image_enhancement.crossing_number import calculate_minutiaes
 from Cascade2Fingerprint_Processor import process_cascade2, MinutiaPoint
-import os
-import time
-import json
 
 #zeke
 
-def process_and_store_images(folder_path, conn):
-    create_tables(conn)
-
-    for filename in os.listdir(folder_path):
-        if filename.endswith(".bmp"):  # Adjust for your image file extensions
-            image_path = os.path.join(folder_path, filename)
-            output_dir = r"C:\Users\14807\Desktop\VSCode\CSCI 158\Project\Image Folder"  # Define or adjust the output directory for processed images
-            try:
-                # Insert a new fingerprint entry and get its ID
-                cursor = conn.cursor()
-                conn.execute('INSERT INTO Fingerprints (AdditionalInfo) VALUES (?)', ('Processed fingerprint',))
-                fingerprint_id = cursor.lastrowid
-            
-                # Process the fingerprint image and get triplets data
-                triplets_data = process_fingerprint_image(image_path, fingerprint_id)
-                #print(f"Generated {len(triplets_data)} triplets for {filename}")  # Debugging statement
-            
-                if triplets_data:
-                    # Assuming fingerprint_id is now available
-                    insert_data(conn, fingerprint_id, triplets_data)
-
-                conn.commit()
-            except Exception as e:
-                print(f"Failed to process {filename} due to error: {e}")
-                conn.rollback()  # Rollback in case of error
-    conn.close()
-
-def process_fingerprint_image(image_path, fingerprint_id):
-    # Load the image and perform initial processing
-    img, mask = process_fingerprint(image_path)
-    centered_img = center_fingerprint_roi(img, mask)
-    
-    if centered_img is not None:
-        # Process image to extract minutiae
-        minutiae_img, term_positions, bif_positions = calculate_minutiaes(centered_img, mask, kernel_size=3, edge_margin=10)
-        true_term_positions, true_bif_positions = remove_false_minutiae(centered_img, term_positions, bif_positions, mask)
-        
-        # Divide into grids and identify high-density grids
-        average_minutiae_per_grid, high_density_grid_ids, grid_size_x, grid_size_y = divide_into_grids(centered_img, mask, true_term_positions, true_bif_positions, 80, 80, 1.5)
-        save_cascade1_output(high_density_grid_ids, true_term_positions, true_bif_positions)
-
-        # Process the high-density grids to extract triplet data
-        triplets_data = process_cascade2(grid_size_x, grid_size_y, centered_img.shape[1])
-        
-        return triplets_data
-    else:
-        print("Error: Image not found or failed to process.")
-        return {}
-
 if __name__ == "__main__":
     # Path to the fingerprint image file
-    output_dir = r"C:\Users\14807\Desktop\VSCode\CSCI 158\Project" #use whatever path you want to view the image in, I suggest within the same directory as this file
-    image_path = r"C:\Users\14807\Desktop\CSCI 158 Project\004\L\004_L2_4.bmp" #image path to process
-    gridOutput_path = r"C:\Users\14807\Desktop\VSCode\CSCI 158\Project\GridOutputImages" #for filtered minutiae method of division
-    folder_path = r"C:\Users\14807\Desktop\CSCI 158 Project\001\L" #for folder holding fingerprint images
+    output_dir = r"C:\Users\jonat\Documents\miniconda\High-Density-Grid-Based-Fingerprint-Matching\Project" 
+#use whatever path you want to view the image in, I suggest within the same directory as this file
+    output_dir2 = r"C:\Users\jonat\Documents\miniconda\High-Density-Grid-Based-Fingerprint-Matching\Project"
+#You dont really need this one, but just for path clarity
+    image_path = r"C:\Users\jonat\Documents\miniconda\High-Density-Grid-Based-Fingerprint-Matching\database\002\R\002_R3_3.bmp"
+#image path to process
+    skel_image_path = r"C:\Users\jonat\Documents\miniconda\High-Density-Grid-Based-Fingerprint-Matching\Project\04_skeleton.jpg" #dont really need
 
-    conn = connect_db()
+    image2_path = r"C:\Users\jonat\Documents\miniconda\High-Density-Grid-Based-Fingerprint-Matching\database\002\R\002_R3_3.bmp"
 
-    #time the program
-    start_time = time.time()
+    #firstFinger
+    # Load the image
+    img, mask = process_fingerprint(image_path, output_dir)
+    # Center the ROI of the fingerprint in the image
+    centered_img = center_fingerprint_roi(img, mask)
+    height, width = centered_img.shape
+    #height, width = img.shape
 
-    process_and_store_images(folder_path, conn)
+    # Check if the image was loaded successfully
+    if centered_img is None:
+    #if img is None:
+        print("Error: Image not found.")
+    else:
+        
+        #Process image and get minutiae visualization and positions
+        minutiae_img, raw_term_positions, raw_bif_positions = calculate_minutiaes(centered_img, mask, kernel_size=3, edge_margin=20)
 
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    
-    print(f"The computation took {elapsed_time} seconds.")
-    conn.close()
+        #minutiae_img, term_positions, bif_positions = calculate_minutiaes(img, mask, kernel_size=3, edge_margin=20)
+        term_positions = [MinutiaPoint(x, y) for x, y in raw_term_positions]
+        bif_positions = [MinutiaPoint(x, y) for x, y in raw_bif_positions]
 
-    
+
+        
+        # Divide the image into grids and store minutiae counts and positions for each grid
+        grid_terminations = {}
+        grid_bifurcations = {}
+        grid_minutiae_counts = {}  # Initialize the dictionary to store the count of minutiae per grid
+        # Print the counts
+        
+        grid_size_x = 80  # Example grid size, adjust as needed
+        grid_size_y = 80  # Example grid size, adjust as needed
+        grid_count_x = math.ceil(width / grid_size_x)  # Calculate number of horizontal grids
+        grid_count_y = math.ceil(height / grid_size_y)  # Calculate number of vertical grids
+        grid_count = grid_count_x * grid_count_y  # Total grid count
+        # Count terminations and bifurcations for each grid
+        for term in term_positions:
+            x, y = term.x, term.y
+            grid_x = x // grid_size_x
+            grid_y = y // grid_size_y
+            grid_id = grid_y * (width // grid_size_x) + grid_x #set the ceiling for total number of grids
+            grid_terminations[grid_id] = grid_terminations.get(grid_id, 0) + 1 #increment the termination list
+            grid_minutiae_counts[grid_id] = grid_minutiae_counts.get(grid_id, 0) + 1 #increment the total minutiae list
+
+        for bif in bif_positions:
+            x, y = bif.x, bif.y
+            grid_x = x // grid_size_x
+            grid_y = y // grid_size_y
+            grid_id = grid_y * (width // grid_size_x) + grid_x #set ceiling for total number of grids
+            grid_bifurcations[grid_id] = grid_bifurcations.get(grid_id, 0) + 1 #increment the bifucation list
+            grid_minutiae_counts[grid_id] = grid_minutiae_counts.get(grid_id, 0) + 1 #increment total minutiae list
+
+        # Print the detailed counts for each grid
+        for grid_id in range(grid_count):
+            num_terminations = grid_terminations.get(grid_id, 0)
+            num_bifurcations = grid_bifurcations.get(grid_id, 0)
+            print(f"Grid {grid_id}: Terminations = {num_terminations}, Bifurcations = {num_bifurcations}")
+
+        print(centered_img.shape)        
+        #print(img.shape)
+
+
+        # Calculate the average number of minutiae per grid
+        total_minutiae = sum(grid_minutiae_counts.values())
+        average_minutiae_per_grid = total_minutiae / grid_count
+
+        # Define a threshold for high-density grids
+        # For example, select grids with at least 20% more minutiae than the average
+        threshold = average_minutiae_per_grid * 1.2
+
+        # List to store the IDs of high-density grids
+        high_density_grid_ids = []
+
+        # Iterate through the grid_minutiae_counts and select high-density grids
+        for grid_id, minutiae_count in grid_minutiae_counts.items():
+            if minutiae_count > threshold:
+                high_density_grid_ids.append(grid_id)
+
+        # Now you have a list of grid IDs that have minutiae counts above the threshold
+        print("FP1 High-density grid IDs:", high_density_grid_ids)
+        
+        save_cascade1_output(high_density_grid_ids, term_positions, bif_positions)
+
+
+
+# Now that cascade1_output.json should exist, process with Cascade 2
+        highest_density_grid_id = max(grid_minutiae_counts, key=grid_minutiae_counts.get)
+        process_cascade2(highest_density_grid_id, grid_size_x, grid_size_y, width)
+
+
+# After obtaining minutiae positions, visualize them
+        visualize_minutiae(img, term_positions, bif_positions, output_dir2)
+
+
+
+"""
+        #secondFinger
+        # Load the image
+    img2, mask2 = process_fingerprint(image2_path, output_dir)
+    # Center the ROI of the fingerprint in the image
+    centered_img2 = center_fingerprint_roi(img2, mask)
+    height2, width2 = centered_img2.shape    
+    #height2, width2 = img2.shape
+
+    # Check if the image was loaded successfully
+    if centered_img2 is None:   
+    #if img2 is None:
+
+        print("Error: Image not found.")
+    else:
+        
+        #Process image and get minutiae visualization and positions
+        minutiae_img2, term_positions2, bif_positions2 = calculate_minutiaes(centered_img2, mask2, kernel_size=3, edge_margin=20)
+        #minutiae_img2, term_positions2, bif_positions2 = calculate_minutiaes(img2, mask2, kernel_size=3, edge_margin=20)
+        
+        # Divide the image into grids and store minutiae counts and positions for each grid
+        grid_terminations2 = {}
+        grid_bifurcations2 = {}
+        grid_minutiae_counts2 = {}  # Initialize the dictionary to store the count of minutiae per grid
+        # Print the counts
+        
+        grid_size_x2 = 80  # Example grid size, adjust as needed
+        grid_size_y2 = 80  # Example grid size, adjust as needed
+        grid_count_x2 = math.ceil(width2 / grid_size_x2)  # Calculate number of horizontal grids
+        grid_count_y2 = math.ceil(height2 / grid_size_y2)  # Calculate number of vertical grids
+        grid_count2 = grid_count_x2 * grid_count_y2  # Total grid count
+        # Count terminations and bifurcations for each grid
+        for term2 in term_positions2:
+            x2, y2 = term2
+            grid_x2 = x2 // grid_size_x2
+            grid_y2 = y2 // grid_size_y2
+            grid_id2 = grid_y2 * (width2 // grid_size_x2) + grid_x2 #set the ceiling for total number of grids
+            grid_terminations2[grid_id2] = grid_terminations2.get(grid_id2, 0) + 1 #increment the termination list
+            grid_minutiae_counts2[grid_id2] = grid_minutiae_counts2.get(grid_id2, 0) + 1 #increment the total minutiae list
+
+        for bif2 in bif_positions2:
+            x2, y2 = bif2
+            grid_x2 = x2 // grid_size_x2
+            grid_y2 = y2 // grid_size_y2
+            grid_id2 = grid_y2 * (width2 // grid_size_x2) + grid_x2 #set ceiling for total number of grids
+            grid_bifurcations2[grid_id2] = grid_bifurcations2.get(grid_id2, 0) + 1 #increment the bifucation list
+            grid_minutiae_counts2[grid_id2] = grid_minutiae_counts2.get(grid_id2, 0) + 1 #increment total minutiae list
+
+        # Print the detailed counts for each grid
+        for grid_id2 in range(grid_count2):
+            num_terminations2 = grid_terminations2.get(grid_id2, 0)
+            num_bifurcations2 = grid_bifurcations2.get(grid_id2, 0)
+            print(f"Grid {grid_id2}: Terminations = {num_terminations2}, Bifurcations = {num_bifurcations2}")
+
+        print(centered_img2.shape)        
+        #print(img2.shape)
+
+
+        # Calculate the average number of minutiae per grid
+        total_minutiae2 = sum(grid_minutiae_counts2.values())
+        average_minutiae_per_grid2 = total_minutiae2 / grid_count2
+
+        # Define a threshold for high-density grids
+        # For example, select grids with at least 20% more minutiae than the average
+        threshold2 = average_minutiae_per_grid2 * 1.2
+
+        # List to store the IDs of high-density grids
+        high_density_grid_ids2 = []
+
+        # Iterate through the grid_minutiae_counts and select high-density grids
+        for grid_id2, minutiae_count2 in grid_minutiae_counts2.items():
+            if minutiae_count2 > threshold2:
+                high_density_grid_ids2.append(grid_id2)
+
+        # Now you have a list of grid IDs that have minutiae counts above the threshold
+        print("FP2 High-density grid IDs:", high_density_grid_ids2)
+
+        # After obtaining minutiae positions...
+        #visualize_minutiae(centered_img2, term_positions2, bif_positions2, output_dir2)
+        visualize_minutiae(img2, term_positions2, bif_positions2, output_dir2)
+
+"""
         
