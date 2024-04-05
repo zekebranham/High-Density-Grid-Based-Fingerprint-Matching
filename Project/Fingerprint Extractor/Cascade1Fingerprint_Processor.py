@@ -2,6 +2,7 @@ import cv2 as cv
 import numpy as np
 import math
 import os
+import json
 from image_enhancement.normalization import normalize
 from image_enhancement.segmentation import create_segmented_and_variance_images
 from image_enhancement.orientation import calculate_angles
@@ -19,20 +20,20 @@ minutiae detection, and image visualization, we prepare the image to be processe
 def load_image(image_path):
     return cv.imread(image_path, cv.IMREAD_GRAYSCALE)
 
-def process_fingerprint(image_path, output_dir):
+def process_fingerprint(image_path):
     img = cv.imread(image_path, cv.IMREAD_GRAYSCALE)
     
     # Perform image enhancement and processing steps
     normalized_img = normalize(img, 100, 100)
-    cv.imwrite(f'{output_dir}/01_normalized.jpg', normalized_img)
+    #cv.imwrite(f'{output_dir}/01_normalized.jpg', normalized_img)
     segmented_img, norm_img, mask = create_segmented_and_variance_images(normalized_img, 16, 0.2)  #set the background threshhold to 0.37 and window size to 8
-    cv.imwrite(f'{output_dir}/02_segmented.jpg', segmented_img)
+    #cv.imwrite(f'{output_dir}/02_segmented.jpg', segmented_img)
     angles = calculate_angles(norm_img, 16)
     freq = ridge_freq(norm_img, mask, angles, 16, 5, 5, 15)
     gabor_img = gabor_filter(norm_img, angles, freq)
-    cv.imwrite(f'{output_dir}/03_gabor_filtered.jpg', gabor_img)
+    #cv.imwrite(f'{output_dir}/03_gabor_filtered.jpg', gabor_img)
     skeleton_img = skeletonize(gabor_img)
-    cv.imwrite(f'{output_dir}/04_skeleton.jpg', skeleton_img)
+    #cv.imwrite(f'{output_dir}/04_skeleton.jpg', skeleton_img)
     #minutiae_img = calculate_minutiaes(skeleton_img, kernel_size=3, edge_margin=2)
 
     return skeleton_img, mask
@@ -86,9 +87,9 @@ def adjust_grid_size(image_dim, desired_grid_dim):
 
 #version to calculate average amount of minutiae per grid
 #def divide_into_grids(image, mask, term_positions, bif_positions, output_dir, grid_size_x=80, grid_size_y=80, threshold=1.2):
-def divide_into_grids(image, mask, term_positions, bif_positions, output_dir, desired_grid_size_x=80, desired_grid_size_y=80, threshold=1.2):
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+def divide_into_grids(image, mask, term_positions, bif_positions, desired_grid_size_x=80, desired_grid_size_y=80, threshold=1.2):
+    #if not os.path.exists(output_dir):
+    #    os.makedirs(output_dir)
     
     height, width = image.shape[:2]
     grid_size_x = adjust_grid_size(width, desired_grid_size_x)
@@ -97,22 +98,22 @@ def divide_into_grids(image, mask, term_positions, bif_positions, output_dir, de
     grid_bifurcations = {}
     grid_minutiae_counts = {}  # Initialize the dictionary to store the count of minutiae per grid
 
-    for x in range(0, width, grid_size_x):
-        for y in range(0, height, grid_size_y):
-            grid_image = image[y:y + grid_size_y, x:x + grid_size_x]
-            grid_id = (y // grid_size_y) * (width // grid_size_x) + (x // grid_size_x)
-            filename = f"grid_{grid_id}.jpg"
-            cv.imwrite(os.path.join(output_dir, filename), grid_image)
+    #for x in range(0, width, grid_size_x):
+        #for y in range(0, height, grid_size_y):
+            #grid_image = image[y:y + grid_size_y, x:x + grid_size_x]
+            #grid_id = (y // grid_size_y) * (width // grid_size_x) + (x // grid_size_x)
+            #filename = f"grid_{grid_id}.jpg"
+            #cv.imwrite(os.path.join(output_dir, filename), grid_image)
 
     for x in range(0, width, grid_size_x):
         for y in range(0, height, grid_size_y):
             # Compute the grid ID
             grid_id = (y // grid_size_y) * (math.ceil(width / grid_size_x)) + (x // grid_size_x)
-            grid_image = image[y:y + grid_size_y, x:x + grid_size_x] #needed for output image
+            #grid_image = image[y:y + grid_size_y, x:x + grid_size_x] #needed for output image
 
             #save each grid as an image
-            grid_filename = os.path.join(output_dir, f"grid_{grid_id}.jpg")
-            cv.imwrite(grid_filename, grid_image)
+            #grid_filename = os.path.join(output_dir, f"grid_{grid_id}.jpg")
+            #cv.imwrite(grid_filename, grid_image)
 
             # Filter termination and bifurcation points that fall within the current grid
             filtered_terms = [(tx, ty) for tx, ty in term_positions if x <= tx < x + grid_size_x and y <= ty < y + grid_size_y]
@@ -130,12 +131,12 @@ def divide_into_grids(image, mask, term_positions, bif_positions, output_dir, de
     for grid_id in range(grid_count):
         num_terminations = grid_terminations.get(grid_id, 0)
         num_bifurcations = grid_bifurcations.get(grid_id, 0)
-        print(f"Grid {grid_id}: Terminations = {num_terminations}, Bifurcations = {num_bifurcations}")
+        #print(f"Grid {grid_id}: Terminations = {num_terminations}, Bifurcations = {num_bifurcations}")
 
     average_minutiae_per_grid = total_minutiae / grid_count if grid_count else 0
     high_density_grid_ids = [grid_id for grid_id, count in grid_minutiae_counts.items() if count > average_minutiae_per_grid * threshold]
 
-    return average_minutiae_per_grid, high_density_grid_ids
+    return average_minutiae_per_grid, high_density_grid_ids, grid_size_x, grid_size_y
     
 
 def visualize_minutiae(img, term_positions, bif_positions, output_dir):
@@ -148,3 +149,16 @@ def visualize_minutiae(img, term_positions, bif_positions, output_dir):
         cv.circle(vis_image, (x, y), 2, (0, 255, 0), -1)  # Green for bifurcations
 
     cv.imwrite(f'{output_dir}/linescanWindow3.jpg', vis_image)  # Save the visualized image
+
+    #Saves data used for cascade 2
+def save_cascade1_output(high_density_grid_ids, term_positions, bif_positions):
+    data_to_save = {
+        'high_density_grid_ids': high_density_grid_ids,
+        'minutiae': {
+            'terminations': [(pt[0], pt[1]) for pt in term_positions],
+            'bifurcations': [(pt[0], pt[1]) for pt in bif_positions]
+        }
+    }
+
+    with open('cascade1_output.json', 'w') as f:
+        json.dump(data_to_save, f)
