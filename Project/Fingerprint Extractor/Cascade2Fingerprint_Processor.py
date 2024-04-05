@@ -1,3 +1,6 @@
+
+# Algorithm for finding minutiae triplets
+
 import math
 import json
 from typing import List, Tuple
@@ -14,7 +17,6 @@ def process_cascade2(grid_size_x, grid_size_y, image_width):
     bif_positions = [MinutiaPoint(x, y) for x, y in cascade1_data['minutiae']['bifurcations']]
     
     all_minutiae = term_positions + bif_positions
-    triplets_data = {}
     #Total number of positions
     
     # Process each high-density grid
@@ -22,16 +24,8 @@ def process_cascade2(grid_size_x, grid_size_y, image_width):
         grid_minutiae = filter_minutiae_by_grid(all_minutiae, grid_id, grid_size_x, grid_size_y, image_width)
         triplets = form_and_analyze_triplets_for_grid(grid_minutiae)
 
-        # Store triplet data for the grid
-        triplets_data[grid_id] = [{
-            'MinutiaePoints': [(minutia.x, minutia.y) for minutia in triplet.minutiae],
-            'Distances': triplet.distances,
-            'Angles': triplet.angles
-        } for triplet in triplets]
-
         # Print details for a sample of 3 triplets
         sample_triplets = triplets[:3]  # Get the first 3 triplets
-    """
         for i, triplet in enumerate(sample_triplets):
             print(f"Sample Triplet {i+1} in Grid {grid_id}:")
             print("  Minutiae Points:")
@@ -42,10 +36,8 @@ def process_cascade2(grid_size_x, grid_size_y, image_width):
                 print(f"    Distance {j+1}-{(j+2)%3+1}: {distance:.2f}")
             print("  Angles (degrees):")
             for j, angle in enumerate(triplet.angles):
-                print(f"    Angle at Point {j+1}: {angle:.2f}Â°")
+                print(f"    Angle at Point {j+1}: {angle:.2f}°")
             print()
-    """
-    return triplets_data
 
 
 class MinutiaPoint:             
@@ -105,21 +97,40 @@ def form_and_analyze_triplets_for_grid(minutiae: List[MinutiaPoint]) -> List[Tri
     triplets = [Triplet(list(triplet_minutiae)) for triplet_minutiae in itertools.combinations(minutiae, 3)]
     return triplets
 
-def process_high_density_grids():
+def process_cascade2(highest_density_grid_id, grid_size_x, grid_size_y, image_width):
+    # Load the data saved by Cascade 1
     with open('cascade1_output.json', 'r') as f:
         cascade1_data = json.load(f)
 
-    high_density_grid_ids = cascade1_data['high_density_grid_ids']
+    # Extract minutiae positions and convert them to MinutiaPoint instances
     term_positions = [MinutiaPoint(x, y) for x, y in cascade1_data['minutiae']['terminations']]
     bif_positions = [MinutiaPoint(x, y) for x, y in cascade1_data['minutiae']['bifurcations']]
     
+    # Combine termination and bifurcation points
     all_minutiae = term_positions + bif_positions
-    
-    for grid_id in high_density_grid_ids:
-    # filters the  minutiae to go into its corresponding grids
-        grid_minutiae = filter_minutiae_by_grid(all_minutiae, grid_id)
-        triplets = form_and_analyze_triplets_for_grid(grid_minutiae)
-        # Creates the triplets
+
+    # Filter the minutiae for the highest-density grid
+    grid_minutiae = filter_minutiae_by_grid(all_minutiae, highest_density_grid_id, grid_size_x, grid_size_y, image_width)
+
+    # Form triplets from the filtered minutiae
+    triplets = form_and_analyze_triplets_for_grid(grid_minutiae)
+
+    # Select a sample of 3 triplets to display
+    sample_triplets = triplets[:3]
+
+    # Print details for each triplet in the sample
+    for i, triplet in enumerate(sample_triplets):
+        print(f"Sample Triplet {i+1} in Highest-Density Grid {highest_density_grid_id}:")
+        print("  Minutiae Points:")
+        for j, point in enumerate(triplet.minutiae):
+            print(f"    Point {j+1}: (x={point.x}, y={point.y})")
+        print("  Distances:")
+        for j, distance in enumerate(triplet.distances):
+            print(f"    Distance {j+1}-{(j+2)%3+1}: {distance:.2f}")
+        print("  Angles (degrees):")
+        for j, angle in enumerate(triplet.angles):
+            print(f"    Angle at Point {j+1}: {angle:.2f}°")
+        print()
 
 def filter_minutiae_by_grid(minutiae: List[MinutiaPoint], grid_id: int, grid_size_x: int, grid_size_y: int, image_width: int) -> List[MinutiaPoint]:
     filtered_minutiae = []
