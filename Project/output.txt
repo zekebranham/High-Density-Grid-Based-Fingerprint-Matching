@@ -1,8 +1,0 @@
-Connected to the database successfully.
-NEW CANDIDATE ID: 1
-ID: 1 Similarity Score: 0.0
-The Probe Processing computation took 2.3954057693481445 seconds.
-The Database Processing computation took 0.0 seconds.
-The Matching computation took 0.015001296997070312 seconds.
-The best matching fingerprint ID is 1 with a score of 0.00.
-The Total High-Density Grid Matching Processing computation took 2.410407066345215 seconds.
