@@ -1,0 +1,23 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.34622.214
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "Fingerprint Extractor", "Fingerprint Extractor\Fingerprint Extractor.pyproj", "{31F7F4AA-F265-4E0B-98EE-205AA7B5FF79}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{31F7F4AA-F265-4E0B-98EE-205AA7B5FF79}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{31F7F4AA-F265-4E0B-98EE-205AA7B5FF79}.Release|Any CPU.ActiveCfg = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {87678FA0-000A-4312-8D80-47EA059C90F3}
+	EndGlobalSection
+EndGlobal
