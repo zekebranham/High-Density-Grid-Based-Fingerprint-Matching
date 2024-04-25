@@ -1,3 +1,4 @@
+#SOURCED
 """
 The principle of gabor filtering is to modify the value of the pixels of an image, generally in order to
 improve its appearance. In practice, it is a matter of creating a new image using the pixel values
