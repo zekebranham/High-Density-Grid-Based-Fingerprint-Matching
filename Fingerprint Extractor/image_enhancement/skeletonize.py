@@ -1,3 +1,4 @@
+#SOURCED AND EDITED
 """
 To facilitate extraction of minutiae the image must be skeletonized: a sequence of morphological
 erosion operations will reduce the thickness of the striations until the latter is equal to one pixel
