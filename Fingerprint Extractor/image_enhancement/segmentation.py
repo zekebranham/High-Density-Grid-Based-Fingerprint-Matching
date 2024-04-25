@@ -1,3 +1,4 @@
+#SOURCED AND EDITED
 """
 In order to eliminate the edges of the image and areas that are too noisy, segmentation is
 necessary. It is based on the calculation of the variance of gray levels. For this purpose, the image
