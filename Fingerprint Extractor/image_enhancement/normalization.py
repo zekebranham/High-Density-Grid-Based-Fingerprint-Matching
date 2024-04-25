@@ -1,3 +1,4 @@
+#SOURCED
 """
 Normalization is used to standardize the intensity values in an image by adjusting the range of
 gray level values so that they extend in a desired range of values and improve the contrast of the
